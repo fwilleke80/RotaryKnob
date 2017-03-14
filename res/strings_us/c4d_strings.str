@@ -1,0 +1,12 @@
+// C4D-StringResource
+// Identifier	Text
+
+STRINGTABLE
+{
+	IDS_TESTOBJECT            "Test Object";
+	IDS_CUSTOMGUI_ROTARYKNOB  "Custom GUI - Rotary Knob";
+
+	IDS_CUSTOMGUI_DOTS        "C++ SDK - Custom GUI Dots";
+	IDS_CUSTOMGUISTRING       "C++ SDK - Custom GUI String";
+	IDS_CUSTOMDATATYPE_DOTS   "C++ SDK - Custom Datatype Dots";
+}

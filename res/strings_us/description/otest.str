@@ -1,0 +1,8 @@
+STRINGTABLE Otest
+{
+	Otest "Test Object";
+
+	TEST_PARAM_1	 "Param 1"   " ";
+	TEST_PARAM_2	 "Param 2"   " ";
+	TEST_PARAM_3	 "Param 3"   " ";
+}
