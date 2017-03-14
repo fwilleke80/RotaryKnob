@@ -7,3 +7,5 @@ This plugin demonstrates the following C4D API aspects:
 * Integrating a CustomGUI in Cinema 4D, using `class CustomGuiData`
 * Drawing custom GUI elements with `class GeUserArea` and `class GeClipMap`
 * Introducing custom properties to a CustomGUI using `struct CustomProperty`
+
+...it does, however, *not* demonstrate anything related to `class CustomDataType` and `class CustomDataTypeClass`.
