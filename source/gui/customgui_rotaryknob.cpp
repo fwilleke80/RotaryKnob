@@ -5,7 +5,13 @@
 #include "customgui_rotaryknob.h"
 
 
-// Maps a value from an input range to an output range
+/// Maps a value from an input range to an output range
+/// @param[in] value The input value
+/// @param[in] minInput Defines the lower limit of the input range
+/// @param[in] maxInput Defines the upper limit of the input range
+/// @param[in] minOutput Defines the lower limit of the output range
+/// @param[in] maxOutput Defines the upper limit of the output range
+/// @return The mapped value
 static inline Float MapRange(Float value, Float minInput, Float maxInput, Float minOutput, Float maxOutput)
 {
 	if ((maxInput - minInput) == 0)
@@ -14,7 +20,13 @@ static inline Float MapRange(Float value, Float minInput, Float maxInput, Float 
 	return  minOutput + (maxOutput - minOutput) * ((value - minInput) / (maxInput - minInput));
 }
 
-static Float Raster(Float value, Float grid)
+/// Raster (or "round") a value to a grid.
+/// This is an extended version of Round(), rounding not just to whole numbers but to a grid with any spacing.
+/// The input value will be rounded to the nearest grid point.
+/// @param[in] value The input value
+/// @param[in] grid The grid spacing
+/// @return The rounded value
+static Float RoundGrid(Float value, Float grid)
 {
 	if (grid == 0.0)
 		return 0.0;
@@ -25,6 +37,7 @@ static Float Raster(Float value, Float grid)
 	
 	return value;
 }
+
 
 
 RotaryKnobArea::RotaryKnobArea() : _tristate(false), _value(0.0)
@@ -85,7 +98,6 @@ void RotaryKnobArea::DrawMsg(Int32 x1, Int32 y1, Int32 x2, Int32 y2, const BaseC
 	this->DrawBitmap(_canvas->GetBitmap(), 0, 0, ROTARYKNOBAREA_WIDTH, ROTARYKNOBAREA_WIDTH, 0, 0, width, width, _tristate ? BMP_EMBOSSED : BMP_NORMAL);
 }
 
-// TODO: Rather use GetInputState() to achieve a loop while mouse is held down
 Bool RotaryKnobArea::InputEvent(const BaseContainer &msg)
 {
 	const Int32 device  = msg.GetInt32(BFM_INPUT_DEVICE);
@@ -93,17 +105,23 @@ Bool RotaryKnobArea::InputEvent(const BaseContainer &msg)
 	
 	if (device == BFM_INPUT_MOUSE && channel == BFM_INPUT_MOUSELEFT)
 	{
+		// Container we need later for the query calls
 		BaseContainer channels;
 		BaseContainer state;
-		Int32 startX = msg.GetInt32(BFM_INPUT_X);
-		Int32 startY = msg.GetInt32(BFM_INPUT_Y);
-		Float deltaX = 0.0;
-		Float deltaY = 0.0;
-		Float oldValue = _value;
 		
-		Global2Local(&startX, &startY);
+		// Values required for calculating the deltas
+		Int32 startX = msg.GetInt32(BFM_INPUT_X);  // Start X coordinate
+		Int32 startY = msg.GetInt32(BFM_INPUT_Y);  // Start Y coordinate
+		Float deltaX = 0.0;  // Current X delta (only needed to determine if mouse has moved during the drag)
+		Float deltaY = 0.0;  // Current Y delta (no needed at all, but MouseDragStart() wants a Y delta, too)
+		Float oldValue = _value;  // The value at the time when the mouse drag started
 		
+		Global2Local(&startX, &startY);  // Transform start coordinates to user area's local space
+		
+		// Start mouse drag
 		MouseDragStart(BFM_INPUT_MOUSELEFT, startX, startY, MOUSEDRAGFLAGS_DONTHIDEMOUSE);
+		
+		// Check if mouse drag is still continueing
 		while (MouseDrag(&deltaX, &deltaY, &channels) == MOUSEDRAGRESULT_CONTINUE)
 		{
 			// Get state of left mouse button
@@ -117,10 +135,11 @@ Bool RotaryKnobArea::InputEvent(const BaseContainer &msg)
 			// Mouse has been moved
 			if (deltaY != 0.0)
 			{
+				// Circular or linear knob behavior?
 				if (_properties._circularMouse)
 				{
 					// We'll set the value according to the mouse cursor position in the circle
-					
+					// TODO: Implement this!
 				}
 				else
 				{
@@ -131,16 +150,19 @@ Bool RotaryKnobArea::InputEvent(const BaseContainer &msg)
 					Global2Local(nullptr, &currentY);
 					Float totalDelta = startY - currentY;
 					
-					// Default multiplier
+					// Default multiplier (for knob rotating speed)
 					Float multiplier = ROTARYKNOBAREA_MULTIPLIER_NORMAL;
 					
 					// Query SHIFT key. If it's pressed, we'll apply the PRECISE multiplier
 					Bool bShift = channels.GetInt32(BFM_INPUT_QUALIFIER) & QSHIFT;
 					if (bShift)
-						multiplier = ROTARYKNOBAREA_MULTIPLIER_PRECISE;
+						multiplier = ROTARYKNOBAREA_MULTIPLIER_PRECISE; // Precise multiplier. Makes knob rotate slower.
 					
-					// Calculate the change of the value for this drag
+					// Calculate the change of the value for this drag.
+					// For this, we use the totalDelta and not the current delta (see above for more info)
 					Float valueChange = totalDelta * (_properties._descMax - _properties._descMin) * multiplier;
+					
+					// Update value
 					_value = oldValue + valueChange;
 				}
 				
@@ -150,16 +172,18 @@ Bool RotaryKnobArea::InputEvent(const BaseContainer &msg)
 				// Calculate value grid snapping if CTRL is pressed
 				Bool bCtrl = channels.GetInt32(BFM_INPUT_QUALIFIER) & QCTRL;
 				if (bCtrl)
-					_value = Raster(_value, ROTARYKNOBAREA_VALUEGRIDSIZE);
+					_value = RoundGrid(_value, ROTARYKNOBAREA_VALUEGRIDSIZE);
 				
 				// Notify parent GUI
+				// Build message container with ID and value
 				BaseContainer m(BFM_ACTION);
 				m.SetInt32(BFM_ACTION_ID, GetId());
-				m.SetFloat(BFM_ACTION_VALUE, _value);
+				m.SetData(BFM_ACTION_VALUE, GeData(_value));
 				m.SetBool(BFM_ACTION_INDRAG, true);  // Important: We're still dragging
 				SendParentMessage(m);
 			}
 		}
+		// Mouse drag is over now
 		MouseDragEnd();
 		return true;
 	}
@@ -200,7 +224,10 @@ void RotaryKnobArea::SetCanvasColor(Int32 cid)
 {
 	Int32 r = 0, g = 0, b = 0;
 	
+	// Get standard GUI color, convert to RGB
 	ColorToRGB(GetGuiWorldColor(cid), r, g, b);
+	
+	// Set color
 	_canvas->SetColor(r, g, b);
 }
 
@@ -215,12 +242,15 @@ void RotaryKnobArea::DrawKnob()
 	Int32 width = ROTARYKNOBAREA_WIDTH * ROTARYKNOBAREA_OVERSAMPLING;
 	Int32 halfWidth = width / 2;
 	
+	// Draw outer circle (acts as a bold dark outline)
 	SetCanvasColor(COLOR_BG_DARK1);
 	_canvas->FillEllipse(ROTARYKNOBAREA_MARGIN, ROTARYKNOBAREA_MARGIN, width - ROTARYKNOBAREA_MARGIN, width - ROTARYKNOBAREA_MARGIN);
 	
+	// Draw inner circle
 	SetCanvasColor(COLOR_BG_DARK2);
 	_canvas->FillEllipse((Int32)(ROTARYKNOBAREA_MARGIN * 1.2), (Int32)(ROTARYKNOBAREA_MARGIN * 1.2), (Int32)(width - ROTARYKNOBAREA_MARGIN * 1.2), (Int32)(width - ROTARYKNOBAREA_MARGIN * 1.2));
 	
+	// Draw center
 	SetCanvasColor(COLOR_BG_HIGHLIGHT);
 	_canvas->FillEllipse(-ROTARYKNOBAREA_MARGIN + halfWidth, -ROTARYKNOBAREA_MARGIN + halfWidth, ROTARYKNOBAREA_MARGIN + halfWidth, ROTARYKNOBAREA_MARGIN + halfWidth);
 }
@@ -332,7 +362,7 @@ Bool RotaryKnobCustomGui::InitValues()
 	this->SetFloat(IDC_VALUE, triState, _descProperties._descMin, _descProperties._descMax, _descProperties._descStep);
 	_knob.SetValue(_value, _tristate);
 
-	return true;
+	return SUPER::InitValues();
 }
 
 // An element was used by the user
@@ -374,8 +404,10 @@ Bool RotaryKnobCustomGui::Command(Int32 id, const BaseContainer &msg)
 
 Int32 RotaryKnobCustomGui::Message(const BaseContainer& msg, BaseContainer& result)
 {
+	// Cinema wants to get cursor information
 	if (msg.GetId() == BFM_GETCURSORINFO)
 	{
+		// Construct result message container
 		result.SetId(BFM_GETCURSORINFO);
 		result.SetInt32(RESULT_CURSOR, MOUSE_POINT_HAND);
 		result.SetString(RESULT_BUBBLEHELP, String::FloatToString(_value));
@@ -420,10 +452,12 @@ Int32 RotaryKnobCustomGui::CustomGuiHeight()
 
 void RotaryKnobCustomGui::SendParentGuiMessage()
 {
-	// Send message to parent object to update the parameter value
+	// Build message container with ID and value
 	BaseContainer m(BFM_ACTION);
 	m.SetInt32(BFM_ACTION_ID, GetId());
 	m.SetData(BFM_ACTION_VALUE, GeData(_value));
+	
+	// Send message
 	SendParentMessage(m);
 }
 
@@ -443,7 +477,6 @@ CDialog* RotaryKnobCustomGuiData::Alloc(const BaseContainer &settings)
   return dlg->Get();
 };
 
-// Destroys the given subdialog.
 void RotaryKnobCustomGuiData::Free(CDialog *dlg, void *userdata)
 {
 	if (!dlg || !userdata) 
@@ -453,19 +486,19 @@ void RotaryKnobCustomGuiData::Free(CDialog *dlg, void *userdata)
   DeleteObj(sub);
 };
 
-// Returns the resource symbol. This symbol can be used in resource files in combination with "CUSTOMGUI".
+// Return the resource symbol. This symbol can be used in resource files in combination with "CUSTOMGUI"
 const Char *RotaryKnobCustomGuiData::GetResourceSym()
 {
 	return SYM_ROTARYKNOB;
 };
 
-// This method can return a pointer to a data structure holding various additional properties.
+// Return the pointer to a data structure holding the CustomGUI's custom properties
 CustomProperty *RotaryKnobCustomGuiData::GetProperties()
 {
 	return g_RotaryKnobProps;
 };
 
-// Returns the applicable datatypes defined in the stringtable array.
+// Return the applicable datatypes defined in the stringtable array
 Int32 RotaryKnobCustomGuiData::GetResourceDataType(Int32 *&table)
 {
 	table = stringtable; 
@@ -473,17 +506,19 @@ Int32 RotaryKnobCustomGuiData::GetResourceDataType(Int32 *&table)
 };
 
 
-/// Register the CustomGUI
+// Register the CustomGUI
 Bool RegisterRotaryKnobCustomGui()
 {
+	// Declare, allocate and fill the CustomGUI library
 	static BaseCustomGuiLib rotaryKnobGUIlib;
-
 	ClearMem(&rotaryKnobGUIlib, sizeof(rotaryKnobGUIlib));
 	FillBaseCustomGui(rotaryKnobGUIlib);
 
+	// Install the CustomGUI library
 	if (!InstallLibrary(ID_CUSTOMGUI_ROTARYKNOB, &rotaryKnobGUIlib, 1000, sizeof(rotaryKnobGUIlib)))
 		return false;
 	
+	// Register the CustomGUI
 	if (!RegisterCustomGuiPlugin(GeLoadString(IDS_CUSTOMGUI_ROTARYKNOB), 0, NewObjClear(RotaryKnobCustomGuiData)))
 		return false;
 

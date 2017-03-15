@@ -19,6 +19,7 @@ public:
 };
 
 
+// Just set some default values in the three REAL elements
 Bool TestObjectData::Init(GeListNode* node)
 {
 	BaseObject *op = static_cast<BaseObject*>(node);

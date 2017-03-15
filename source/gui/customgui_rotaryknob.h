@@ -76,7 +76,8 @@ struct DescElementProperties
 };
 
 
-/// The user area used to display actual rotary knob
+/// The user area used to display the actual rotary knob.
+/// It also handles all mouse input on the knob, and has a GeClipMap for nice drawing capabilities.
 class RotaryKnobArea : public GeUserArea
 {
 	INSTANCEOF(RotaryKnobArea, GeUserArea);
@@ -92,29 +93,57 @@ public:
 	virtual void DrawMsg(Int32 x1, Int32 y1, Int32 x2, Int32 y2, const BaseContainer &msg);
 	virtual Bool InputEvent(const BaseContainer &msg);
 	
+	/// Set properties
+	/// @param[in] properties Ref to a DescElementProperties object
 	void SetProperties(const DescElementProperties &properties);
-	void SetValue(Float newValue, Bool newTristate);
+	
+	/// Sets a new value
+	/// @param[in] newValue The new value
+	/// @param[in] newTristate The new tristate
+	void SetValue(Float newValue, Bool newTristate = false);
+	
+	/// Return the current value
 	Float GetValue() const;
 	
 private:
+	/// Get the corresponding X and Y coordinates for the current value
+	/// @param[in] x Assigned the resulting X coordinate
+	/// @param[in] y Assigned the resulting Y coordinate
 	void GetValueCoords(Float &x, Float &y) const;
+	
+	/// Converts a color vector (0.0 ... 1.0) to separate RGB values (0 ... 255)
 	void ColorToRGB(const Vector &color, Int32 &r, Int32 &g, Int32 &b) const;
+	
+	/// Sets a standard GUI color as draw color in the GeClipMap
+	/// param[in] cid A color ID from the C4D API's COLOR_ enumeration
 	void SetCanvasColor(Int32 cid);
 	
+	/// Draw the knob background
+	/// @note: Must be called between BeginDraw() and EndDraw()
 	void DrawBackground();
+	
+	/// Draw the knob
+	/// @note: Must be called between BeginDraw() and EndDraw()
 	void DrawKnob();
+	
+	/// Draw the knob's marker
+	/// @note: Must be called between BeginDraw() and EndDraw()
 	void DrawMarker();
+	
+	/// Draw the value on the knob
+	/// @note: Must be called between BeginDraw() and EndDraw()
 	void DrawValue();
 	
 private:
-	Bool       _tristate;
-	Float      _value;
-	DescElementProperties  _properties;
-	AutoAlloc<GeClipMap>   _canvas;
+	Bool       _tristate;  ///< True, if the GUI element is in a tristate
+	Float      _value;     ///< The value
+	DescElementProperties  _properties;  ///< Custom properties as specified in the .res file
+	AutoAlloc<GeClipMap>   _canvas;      ///< GeClipMap for drawing the knob
 };
 
 
 /// A custom GUI to display a REAL value as a rotary knob
+/// This class implements the actual CustomGUI, including layout, value getting/setting, et cetera.
 class RotaryKnobCustomGui : public iCustomGui
 {
 	INSTANCEOF(RotaryKnobCustomGui, iCustomGui);
@@ -130,7 +159,6 @@ public:
 	virtual Int32 CustomGuiWidth();
 	virtual Int32 CustomGuiHeight();
 	
-private:
 	/// Simply send a BFM_ACTION message with our ID and value to the parent GUI element
 	void SendParentGuiMessage();
 	
