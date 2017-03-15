@@ -14,6 +14,17 @@ static inline Float MapRange(Float value, Float minInput, Float maxInput, Float 
 	return  minOutput + (maxOutput - minOutput) * ((value - minInput) / (maxInput - minInput));
 }
 
+static Float Raster(Float value, Float grid)
+{
+	if (grid == 0.0)
+		return 0.0;
+	
+	value = value / grid + 0.5;
+	value = Floor(value);
+	value = value * grid;
+	
+	return value;
+}
 
 
 RotaryKnobArea::RotaryKnobArea() : _tristate(false), _value(0.0)
@@ -77,28 +88,82 @@ void RotaryKnobArea::DrawMsg(Int32 x1, Int32 y1, Int32 x2, Int32 y2, const BaseC
 // TODO: Rather use GetInputState() to achieve a loop while mouse is held down
 Bool RotaryKnobArea::InputEvent(const BaseContainer &msg)
 {
-	// check the input device
-	switch (msg.GetInt32(BFM_INPUT_DEVICE))
+	const Int32 device  = msg.GetInt32(BFM_INPUT_DEVICE);
+	const Int32 channel = msg.GetInt32(BFM_INPUT_CHANNEL);
+	
+	if (device == BFM_INPUT_MOUSE && channel == BFM_INPUT_MOUSELEFT)
 	{
-			// some mouse interaction
-		case BFM_INPUT_MOUSE:
+		BaseContainer channels;
+		BaseContainer state;
+		Int32 startX = msg.GetInt32(BFM_INPUT_X);
+		Int32 startY = msg.GetInt32(BFM_INPUT_Y);
+		Float deltaX = 0.0;
+		Float deltaY = 0.0;
+		Float oldValue = _value;
+		
+		Global2Local(&startX, &startY);
+		
+		MouseDragStart(BFM_INPUT_MOUSELEFT, startX, startY, MOUSEDRAGFLAGS_DONTHIDEMOUSE);
+		while (MouseDrag(&deltaX, &deltaY, &channels) == MOUSEDRAGRESULT_CONTINUE)
 		{
-			// get the cursor position
-			//Int32 mx = msg.GetInt32(BFM_INPUT_X);
-			//Int32 my = msg.GetInt32(BFM_INPUT_Y);
-			//Global2Local(&mx, &my);
+			// Get state of left mouse button
+			if (!GetInputState(BFM_INPUT_MOUSE, BFM_INPUT_MOUSELEFT, state))
+				break;
 			
-			// add the new position to the data
-			//_data->_points.Append(Vector(mx,my,0));
+			// Cancel if mouse button not pressed
+			if (state.GetInt32(BFM_INPUT_VALUE) == 0)
+				break;
 			
-			// inform the parent that the data has changed
-			//BaseContainer m(BFM_ACTION);
-			//m.SetInt32(BFM_ACTION_ID, GetId());
-			//SendParentMessage(m);
-			
-			//return true;
+			// Mouse has been moved
+			if (deltaY != 0.0)
+			{
+				if (_properties._circularMouse)
+				{
+					// We'll set the value according to the mouse cursor position in the circle
+					
+				}
+				else
+				{
+					// We calculate our own delta
+					// The delta from the MouseDrag() call is only differential to the previous call,
+					// but we need a delta that's differential to the ORIGINAL (not the previous) mouse position and the current one.
+					Int32 currentY = state.GetInt32(BFM_INPUT_Y);
+					Global2Local(nullptr, &currentY);
+					Float totalDelta = startY - currentY;
+					
+					// Default multiplier
+					Float multiplier = ROTARYKNOBAREA_MULTIPLIER_NORMAL;
+					
+					// Query SHIFT key. If it's pressed, we'll apply the PRECISE multiplier
+					Bool bShift = channels.GetInt32(BFM_INPUT_QUALIFIER) & QSHIFT;
+					if (bShift)
+						multiplier = ROTARYKNOBAREA_MULTIPLIER_PRECISE;
+					
+					// Calculate the change of the value for this drag
+					Float valueChange = totalDelta * (_properties._descMax - _properties._descMin) * multiplier;
+					_value = oldValue + valueChange;
+				}
+				
+				// Clamp value, just to be on the safe side
+				_value = ClampValue(_value, _properties._descMin, _properties._descMax);
+				
+				// Calculate value grid snapping if CTRL is pressed
+				Bool bCtrl = channels.GetInt32(BFM_INPUT_QUALIFIER) & QCTRL;
+				if (bCtrl)
+					_value = Raster(_value, ROTARYKNOBAREA_VALUEGRIDSIZE);
+				
+				// Notify parent GUI
+				BaseContainer m(BFM_ACTION);
+				m.SetInt32(BFM_ACTION_ID, GetId());
+				m.SetFloat(BFM_ACTION_VALUE, _value);
+				m.SetBool(BFM_ACTION_INDRAG, true);  // Important: We're still dragging
+				SendParentMessage(m);
+			}
 		}
+		MouseDragEnd();
+		return true;
 	}
+	
 	return false;
 }
 
@@ -194,17 +259,26 @@ void RotaryKnobArea::DrawMarker()
 	_canvas->Line((Int32)halfWidth, (Int32)halfWidth, (Int32)(ox + halfWidth), (Int32)(oy + halfWidth));
 }
 
-// TODO: Doesn't seem to work. Strange...
+// Draw value text
 void RotaryKnobArea::DrawValue()
 {
 	// Calculate draw parameters
 	Int32 width = ROTARYKNOBAREA_WIDTH * ROTARYKNOBAREA_OVERSAMPLING;
 	Int32 halfWidth = width / 2;
 	
+	// Get value string
 	String label = String::FloatToString(_value);
+	
+	// Set font size
+	BaseContainer fontDesc;
+	if (!_canvas->GetDefaultFont(GE_FONT_DEFAULT_SYSTEM, &fontDesc))
+		return;
+	_canvas->SetFontSize(&fontDesc, GE_FONT_SIZE_INTERNAL, ROTARYKNOBAREA_FONTSIZE);
+	_canvas->SetFont(&fontDesc);
 
-	SetCanvasColor(COLOR_B);
-	_canvas->TextAt(halfWidth - _canvas->GetTextWidth(label) / 2, halfWidth - _canvas->GetTextHeight() / 2, label);
+	// Draw value string
+	SetCanvasColor(COLOR_MENU_BG_ICON);
+	_canvas->TextAt(halfWidth - _canvas->GetTextWidth(label) / 2, (Int32)(halfWidth * 1.5) - _canvas->GetTextHeight() / 2, label);
 }
 
 
@@ -223,7 +297,8 @@ Bool RotaryKnobCustomGui::CreateLayout()
 		GroupSpace(0, 0);
 		
 		// Add element title
-		this->AddStaticText(0, BFH_CENTER, 0, 0, _descProperties._descName, 0);
+		if (!_descProperties._hideName)
+			this->AddStaticText(0, BFH_CENTER, 0, 0, _descProperties._descName, 0);
 
 		// Create the knob user area
 		C4DGadget* userArea = this->AddUserArea(IDC_KNOBAREA, BFH_CENTER, ROTARYKNOBAREA_WIDTH, ROTARYKNOBAREA_WIDTH);
@@ -242,29 +317,20 @@ Bool RotaryKnobCustomGui::CreateLayout()
 	return SUPER::CreateLayout();
 }
 
-// The string and it's tristate are handled automatically.
+// Set values to GUI elements, handle tristates
 Bool RotaryKnobCustomGui::InitValues()
 {
+	// Dummy TriState
+	TriState<Float> triState;
+	triState.Add(_value);
 	
-	//this->SetString(TEXT_ID, _string, _tristate);
-	//this->SetFloat(IDC_VALUE, _value, _tristate);
-	this->SetFloat(IDC_VALUE, _value, _descProperties._descMin, _descProperties._descMax, _descProperties._descStep);
-	_knob.SetValue(_value, _tristate);
-	
-	// the counter's tristate is handled explicitly
+	// If GUI element is in a tristate state, just add some dummy value to the number field look tristate'y
 	if (_tristate)
-	{
-		// At least one value of all selected parameteres is different; show "---"
-		//this->SetString(COUNT_ID,"---");
-	}
-	else
-	{
-		// Get and display length.
-		//const Int32 length					= _string.GetLength();
-		//const String lengthString		= String::IntToString(length);
-
-		//this->SetString(COUNT_ID,lengthString);
-	}
+		triState.Add(123.456);
+	
+	// Set tristate to number field and knob area
+	this->SetFloat(IDC_VALUE, triState, _descProperties._descMin, _descProperties._descMax, _descProperties._descStep);
+	_knob.SetValue(_value, _tristate);
 
 	return true;
 }
@@ -306,13 +372,26 @@ Bool RotaryKnobCustomGui::Command(Int32 id, const BaseContainer &msg)
 	return SUPER::Command(id, msg);
 }
 
+Int32 RotaryKnobCustomGui::Message(const BaseContainer& msg, BaseContainer& result)
+{
+	if (msg.GetId() == BFM_GETCURSORINFO)
+	{
+		result.SetId(BFM_GETCURSORINFO);
+		result.SetInt32(RESULT_CURSOR, MOUSE_POINT_HAND);
+		result.SetString(RESULT_BUBBLEHELP, String::FloatToString(_value));
+	}
+	
+	return SUPER::Message(msg, result);
+}
+
 // The data is changed from the outside.
 Bool RotaryKnobCustomGui::SetData(const TriState<GeData> &tristate)
 {
-	//_string   = tristate.GetValue().GetString();
+	// Store values internally
 	_value    = tristate.GetValue().GetFloat();
 	_tristate = tristate.GetTri();
 
+	// Set values to GUI elements & trigger redraw
 	this->InitValues();
 	_knob.Redraw();
 
@@ -322,6 +401,7 @@ Bool RotaryKnobCustomGui::SetData(const TriState<GeData> &tristate)
 // The data is requested from the outside.
 TriState<GeData> RotaryKnobCustomGui::GetData()
 {
+	// Construct a TriState from the value
 	TriState<GeData> tri;
 	tri.Add(_value);
 
