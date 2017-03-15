@@ -5,6 +5,9 @@
 
 const Int32 ID_TESTOBJECT = 1038993;
 
+
+/// This plugin implements an object that does absolutely nothing,
+/// it acts simple as a test environment for the CustomGUI.
 class TestObjectData : public ObjectData
 {
 	INSTANCEOF(TestObjectData, ObjectData)
