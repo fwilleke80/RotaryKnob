@@ -2,6 +2,9 @@
 #include "main.h"
 
 
+#define PLUGIN_VERSION String("RotaryKnob 0.2")
+
+
 Bool PluginStart()
 {
 	// Rotary knob custom gui
@@ -11,6 +14,8 @@ Bool PluginStart()
 	// Test object
 	if (!RegisterTestObject())
 		return false;
+
+	GePrint(PLUGIN_VERSION);
 	
 	return true;
 }
