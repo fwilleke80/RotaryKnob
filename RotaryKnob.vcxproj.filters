@@ -1,0 +1,33 @@
+﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="source">
+      <UniqueIdentifier>{21895B69-DE91-7035-0000-0000CA90681B}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="source\gui">
+      <UniqueIdentifier>{726b5cd5-cc4d-41d7-a2a7-a7c357fca5b1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="source\object">
+      <UniqueIdentifier>{9faac805-ee65-4003-ae89-7edea07740d0}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="source\main.cpp">
+      <Filter>source</Filter>
+    </ClCompile>
+    <ClCompile Include="source\object\testobject.cpp">
+      <Filter>source\object</Filter>
+    </ClCompile>
+    <ClCompile Include="source\gui\customgui_rotaryknob.cpp">
+      <Filter>source\gui</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="source\main.h">
+      <Filter>source</Filter>
+    </ClInclude>
+    <ClInclude Include="source\gui\customgui_rotaryknob.h">
+      <Filter>source\gui</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>
