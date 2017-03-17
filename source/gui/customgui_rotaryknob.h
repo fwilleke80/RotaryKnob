@@ -43,6 +43,8 @@ static const Float ROTARYKNOBAREA_MULTIPLIER_NORMAL = 0.01;   ///< Normal knob m
 static const Float ROTARYKNOBAREA_MULTIPLIER_PRECISE = 0.001; ///< Precise (slow) knob move speed
 static const Int32 ROTARYKNOBAREA_FONTSIZE = 28;        ///< Font size for the value display with VALUE_IN_KNOB
 static const Float ROTARYKNOBAREA_VALUEGRIDSIZE = 0.5;  ///< Grid size for value snapping during mouse drag
+static const Float ROTARYKNOBAREA_SCALEBEGIN = -225.0;  ///< Where the usable range of the rotary knob starts
+static const Float ROTARYKNOBAREA_SCALEEND = 45.0;      ///< Where the usable range of the rotary knob ends
 
 
 /// This struct holds some of the DESC_ properties required for the rotary knob user area

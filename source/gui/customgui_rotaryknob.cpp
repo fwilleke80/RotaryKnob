@@ -133,13 +133,59 @@ Bool RotaryKnobArea::InputEvent(const BaseContainer &msg)
 				break;
 			
 			// Mouse has been moved
-			if (deltaY != 0.0)
+			if (deltaX != 0.0 || deltaY != 0.0)
 			{
 				// Circular or linear knob behavior?
 				if (_properties._circularMouse)
 				{
 					// We'll set the value according to the mouse cursor position in the circle
-					// TODO: Implement this!
+					
+					// Steps:
+					// 1. Transform the XY mouse coordinates to an angle
+					//    This has to be done in two steps:
+					//    1.1. Measure angle between (0;1;0) and mouse position
+					//    1.2. Map that angle on the actual SCALEBEGIN and SCALEEND range
+					// 2. Map the resulting angle back to the CustomGUI's value range
+					// 3. Set result as _value
+					
+					// 1. Getting an angle
+					
+					// Get local mouse coordinates
+					Int32 mouseX = state.GetInt32(BFM_INPUT_X);
+					Int32 mouseY = state.GetInt32(BFM_INPUT_Y);
+					Global2Local(&mouseX, &mouseY);
+					
+					// Construct vectors for angle measuretaking
+					Vector coord((Float)mouseX, (Float)mouseY, 0.0);
+					Vector unit(0.0, -1.0, 0.0);
+					
+					// Offset mouse coordinates, because the center of the knob is not at (0;0)
+					Float halfWidth = (Float)ROTARYKNOBAREA_WIDTH / 2.0;
+					coord.x -= halfWidth;
+					coord.y -= halfWidth;
+					
+					// Normalize (required for the Atan2() angle measuring below)
+					coord.Normalize();
+					
+					// Get angle in radians.
+					Float angle = GetAngle(unit, coord);
+					
+					// Since GetAngle() always returns positive values, we have to get our sign back
+					if (coord.x < 0.0)
+						angle *= -1.0;
+					
+					// Map the angle to the actual knob scale range (between ROTARYKNOBAREA_SCALEBEGIN and ROTARYKNOBAREA_SCALEEND)
+					angle = MapRange(angle, Rad(-180.0), Rad(180.0), Rad(ROTARYKNOBAREA_SCALEBEGIN), Rad(ROTARYKNOBAREA_SCALEEND));
+					
+					//angle = ClampValue(angle, Rad(ROTARYKNOBAREA_SCALEBEGIN), Rad(ROTARYKNOBAREA_SCALEEND));
+
+					// 2, Map the angle to the output range of the GUI element
+					Float newValue = MapRange(angle, Rad(ROTARYKNOBAREA_SCALEBEGIN), Rad(ROTARYKNOBAREA_SCALEEND), _properties._descMin, _properties._descMax);
+
+					GePrint("MousePos=[" + String::FloatToString(coord.x) + ";" + String::FloatToString(coord.y) + "]; ScaleLimits=[" + String::FloatToString(ROTARYKNOBAREA_SCALEBEGIN) + "°;" + String::FloatToString(ROTARYKNOBAREA_SCALEEND) + "]; Angle=" + String::FloatToString(Deg(angle)) + "°; newValue=" + String::FloatToString(newValue));
+
+					// 3. Set as new value
+					_value = newValue;
 				}
 				else
 				{
@@ -164,15 +210,15 @@ Bool RotaryKnobArea::InputEvent(const BaseContainer &msg)
 					
 					// Update value
 					_value = oldValue + valueChange;
+					
+					// Calculate value grid snapping if CTRL is pressed
+					Bool bCtrl = channels.GetInt32(BFM_INPUT_QUALIFIER) & QCTRL;
+					if (bCtrl)
+						_value = RoundGrid(_value, ROTARYKNOBAREA_VALUEGRIDSIZE);
 				}
 				
 				// Clamp value, just to be on the safe side
 				_value = ClampValue(_value, _properties._descMin, _properties._descMax);
-				
-				// Calculate value grid snapping if CTRL is pressed
-				Bool bCtrl = channels.GetInt32(BFM_INPUT_QUALIFIER) & QCTRL;
-				if (bCtrl)
-					_value = RoundGrid(_value, ROTARYKNOBAREA_VALUEGRIDSIZE);
 				
 				// Notify parent GUI
 				// Build message container with ID and value
@@ -262,8 +308,8 @@ void RotaryKnobArea::DrawMarker()
 	Float input_max = _properties._descMax;
 	
 	// Output scale
-	Float scale_min = Rad(-225.0);
-	Float scale_max = Rad(45.0);
+	Float scale_min = Rad(ROTARYKNOBAREA_SCALEBEGIN);
+	Float scale_max = Rad(ROTARYKNOBAREA_SCALEEND);
 	
 	// Map value to scale
 	Float value = MapRange(_value, input_min, input_max, scale_min, scale_max);
