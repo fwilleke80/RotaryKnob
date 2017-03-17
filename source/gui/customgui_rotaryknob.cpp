@@ -105,6 +105,22 @@ Bool RotaryKnobArea::InputEvent(const BaseContainer &msg)
 	
 	if (device == BFM_INPUT_MOUSE && channel == BFM_INPUT_MOUSELEFT)
 	{
+		// Catch double click first
+		if (msg.GetBool(BFM_INPUT_DOUBLECLICK))
+		{
+			GePrint("Doubleclick!");
+			
+			// Notify parent GUI
+			// Build message container with ID and value
+			BaseContainer m(BFM_ACTION);
+			m.SetInt32(BFM_ACTION_ID, GetId());
+			m.SetData(BFM_ACTION_VALUE, GeData(_value));
+			m.SetInt32(MSG_KNOBAREAMESSAGE, MSG_KNOBAREAMESSAGE_SHOWPOPUP);
+			SendParentMessage(m);
+
+			return true;
+		}
+		
 		// Container we need later for the query calls
 		BaseContainer channels;
 		BaseContainer state;
@@ -157,7 +173,7 @@ Bool RotaryKnobArea::InputEvent(const BaseContainer &msg)
 					
 					// Construct vectors for angle measuretaking
 					Vector coord((Float)mouseX, (Float)mouseY, 0.0);
-					Vector unit(0.0, -1.0, 0.0);
+					Vector unit(0.0, 1.0, 0.0);
 					
 					// Offset mouse coordinates, because the center of the knob is not at (0;0)
 					Float halfWidth = (Float)ROTARYKNOBAREA_WIDTH / 2.0;
@@ -175,14 +191,14 @@ Bool RotaryKnobArea::InputEvent(const BaseContainer &msg)
 						angle *= -1.0;
 					
 					// Map the angle to the actual knob scale range (between ROTARYKNOBAREA_SCALEBEGIN and ROTARYKNOBAREA_SCALEEND)
-					angle = MapRange(angle, Rad(-180.0), Rad(180.0), Rad(ROTARYKNOBAREA_SCALEBEGIN), Rad(ROTARYKNOBAREA_SCALEEND));
+					angle = MapRange(angle, Rad(-180.0), Rad(180.0), Rad(-ROTARYKNOBAREA_SCALELIMIT), Rad(ROTARYKNOBAREA_SCALELIMIT));
 					
 					//angle = ClampValue(angle, Rad(ROTARYKNOBAREA_SCALEBEGIN), Rad(ROTARYKNOBAREA_SCALEEND));
 
 					// 2, Map the angle to the output range of the GUI element
-					Float newValue = MapRange(angle, Rad(ROTARYKNOBAREA_SCALEBEGIN), Rad(ROTARYKNOBAREA_SCALEEND), _properties._descMin, _properties._descMax);
+					Float newValue = MapRange(angle, Rad(-ROTARYKNOBAREA_SCALELIMIT), Rad(ROTARYKNOBAREA_SCALELIMIT), _properties._descMin, _properties._descMax);
 
-					GePrint("MousePos=[" + String::FloatToString(coord.x) + ";" + String::FloatToString(coord.y) + "]; ScaleLimits=[" + String::FloatToString(ROTARYKNOBAREA_SCALEBEGIN) + "°;" + String::FloatToString(ROTARYKNOBAREA_SCALEEND) + "]; Angle=" + String::FloatToString(Deg(angle)) + "°; newValue=" + String::FloatToString(newValue));
+					GePrint("MousePos=[" + String::FloatToString(coord.x) + ";" + String::FloatToString(coord.y) + "]; ScaleLimits=[" + String::FloatToString(-ROTARYKNOBAREA_SCALELIMIT) + "°;" + String::FloatToString(ROTARYKNOBAREA_SCALELIMIT) + "]; Angle=" + String::FloatToString(Deg(angle)) + "°; newValue=" + String::FloatToString(newValue));
 
 					// 3. Set as new value
 					_value = newValue;
@@ -253,12 +269,6 @@ Float RotaryKnobArea::GetValue() const
 	return _value;
 }
 
-void RotaryKnobArea::GetValueCoords(Float &x, Float &y) const
-{
-	x = Cos(_value / PI);
-	y = Sin(_value / PI);
-}
-
 void RotaryKnobArea::ColorToRGB(const Vector &color, Int32 &r, Int32 &g, Int32 &b) const
 {
 	r = (Int32)(color.x * 255.0);
@@ -303,20 +313,12 @@ void RotaryKnobArea::DrawKnob()
 
 void RotaryKnobArea::DrawMarker()
 {
-	// Input scale
-	Float input_min = _properties._descMin;
-	Float input_max = _properties._descMax;
-	
-	// Output scale
-	Float scale_min = Rad(ROTARYKNOBAREA_SCALEBEGIN);
-	Float scale_max = Rad(ROTARYKNOBAREA_SCALEEND);
-	
 	// Map value to scale
-	Float value = MapRange(_value, input_min, input_max, scale_min, scale_max);
+	Float value = MapRange(_value, _properties._descMin, _properties._descMax, Rad(-ROTARYKNOBAREA_SCALELIMIT), Rad(ROTARYKNOBAREA_SCALELIMIT));
 	
 	// Map value to circle
-	Float x = Cos(value);
-	Float y = Sin(value);
+	Float x = Sin(value);
+	Float y = Cos(value);
 	
 	// Calculate draw parameters
 	Float width = ROTARYKNOBAREA_WIDTH * ROTARYKNOBAREA_OVERSAMPLING;
@@ -326,7 +328,7 @@ void RotaryKnobArea::DrawMarker()
 	
 	// Calculate draw coordinates
 	Float ox = x * radius08;
-	Float oy = y * radius08;
+	Float oy = y * -radius08;
 	
 	// Set color
 	SetCanvasColor(COLOR_BG_HIGHLIGHT);
@@ -418,6 +420,13 @@ Bool RotaryKnobCustomGui::Command(Int32 id, const BaseContainer &msg)
 	{
 		case IDC_KNOBAREA:
 		{
+			// Catch our custom KnobArea messages first
+			if (msg.GetInt32(MSG_KNOBAREAMESSAGE) == MSG_KNOBAREAMESSAGE_SHOWPOPUP)
+			{
+				GePrint("Show value entry popup!");
+				return true;
+			}
+			
 			// Get new value from knob user area
 			_value = _knob.GetValue();
 			

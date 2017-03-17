@@ -11,6 +11,9 @@ static const Int32 ID_CUSTOMGUI_ROTARYKNOB = 1038994;
 static const Int32 IDC_KNOBAREA = 1001;  ///< The ID of the knob user area
 static const Int32 IDC_VALUE    = 1002;  ///< The ID of the value display
 
+static const Int32 MSG_KNOBAREAMESSAGE = 1039007;  ///< Unique ID for messages from the KnobArea to the CustomGUI
+static const Int32 MSG_KNOBAREAMESSAGE_SHOWPOPUP = 1;  ///< Show value entry popup
+
 /// ID values for Rotary Knob CustomProperties
 enum
 {
@@ -43,8 +46,7 @@ static const Float ROTARYKNOBAREA_MULTIPLIER_NORMAL = 0.01;   ///< Normal knob m
 static const Float ROTARYKNOBAREA_MULTIPLIER_PRECISE = 0.001; ///< Precise (slow) knob move speed
 static const Int32 ROTARYKNOBAREA_FONTSIZE = 28;        ///< Font size for the value display with VALUE_IN_KNOB
 static const Float ROTARYKNOBAREA_VALUEGRIDSIZE = 0.5;  ///< Grid size for value snapping during mouse drag
-static const Float ROTARYKNOBAREA_SCALEBEGIN = -225.0;  ///< Where the usable range of the rotary knob starts
-static const Float ROTARYKNOBAREA_SCALEEND = 45.0;      ///< Where the usable range of the rotary knob ends
+static const Float ROTARYKNOBAREA_SCALELIMIT = 135.0;  ///< Where the usable range of the rotary knob starts and ends
 
 
 /// This struct holds some of the DESC_ properties required for the rotary knob user area
@@ -108,11 +110,6 @@ public:
 	Float GetValue() const;
 	
 private:
-	/// Get the corresponding X and Y coordinates for the current value
-	/// @param[in] x Assigned the resulting X coordinate
-	/// @param[in] y Assigned the resulting Y coordinate
-	void GetValueCoords(Float &x, Float &y) const;
-	
 	/// Converts a color vector (0.0 ... 1.0) to separate RGB values (0 ... 255)
 	void ColorToRGB(const Vector &color, Int32 &r, Int32 &g, Int32 &b) const;
 	
