@@ -125,8 +125,8 @@
 			children = (
 				010461111E7813FD0067811C /* object */,
 				A0A6683339BDAFD147000000 /* gui */,
-				A0A6683339E921D362000000 /* main.cpp */,
 				A0A66833391837B5E7000000 /* main.h */,
+				A0A6683339E921D362000000 /* main.cpp */,
 			);
 			name = source;
 			path = ../source;
