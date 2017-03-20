@@ -158,9 +158,6 @@ Bool RotaryKnobArea::InputEvent(const BaseContainer &msg)
 					
 					// Steps:
 					// 1. Transform the XY mouse coordinates to an angle
-					//    This has to be done in two steps:
-					//    1.1. Measure angle between (0;1;0) and mouse position
-					//    1.2. Map that angle on the actual SCALEBEGIN and SCALEEND range
 					// 2. Map the resulting angle back to the CustomGUI's value range
 					// 3. Set result as _value
 					
@@ -173,7 +170,7 @@ Bool RotaryKnobArea::InputEvent(const BaseContainer &msg)
 					
 					// Construct vectors for angle measuretaking
 					Vector coord((Float)mouseX, (Float)mouseY, 0.0);
-					Vector unit(0.0, 1.0, 0.0);
+					Vector unit(0.0, -1.0, 0.0);
 					
 					// Offset mouse coordinates, because the center of the knob is not at (0;0)
 					Float halfWidth = (Float)ROTARYKNOBAREA_WIDTH / 2.0;
@@ -189,16 +186,11 @@ Bool RotaryKnobArea::InputEvent(const BaseContainer &msg)
 					// Since GetAngle() always returns positive values, we have to get our sign back
 					if (coord.x < 0.0)
 						angle *= -1.0;
-					
-					// Map the angle to the actual knob scale range (between ROTARYKNOBAREA_SCALEBEGIN and ROTARYKNOBAREA_SCALEEND)
-					angle = MapRange(angle, Rad(-180.0), Rad(180.0), Rad(-ROTARYKNOBAREA_SCALELIMIT), Rad(ROTARYKNOBAREA_SCALELIMIT));
-					
-					//angle = ClampValue(angle, Rad(ROTARYKNOBAREA_SCALEBEGIN), Rad(ROTARYKNOBAREA_SCALEEND));
 
 					// 2, Map the angle to the output range of the GUI element
 					Float newValue = MapRange(angle, Rad(-ROTARYKNOBAREA_SCALELIMIT), Rad(ROTARYKNOBAREA_SCALELIMIT), _properties._descMin, _properties._descMax);
-
-					GePrint("MousePos=[" + String::FloatToString(coord.x) + ";" + String::FloatToString(coord.y) + "]; ScaleLimits=[" + String::FloatToString(-ROTARYKNOBAREA_SCALELIMIT) + "°;" + String::FloatToString(ROTARYKNOBAREA_SCALELIMIT) + "]; Angle=" + String::FloatToString(Deg(angle)) + "°; newValue=" + String::FloatToString(newValue));
+					
+					//GePrint("MousePos=[" + String::FloatToString(coord.x) + ";" + String::FloatToString(coord.y) + "]; ScaleLimits=[" + String::FloatToString(-ROTARYKNOBAREA_SCALELIMIT) + "°;" + String::FloatToString(ROTARYKNOBAREA_SCALELIMIT) + "]; Angle=" + String::FloatToString(Deg(angle)) + "°; newValue=" + String::FloatToString(newValue));
 
 					// 3. Set as new value
 					_value = newValue;
