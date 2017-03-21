@@ -2,6 +2,7 @@
 #define CUSTOMGUI_ROTARYKNOB_H__
 
 #include "c4d.h"
+#include "lib_clipmap.h"
 
 
 /// Plugin ID for Rotary Knob CustomGUI
@@ -9,25 +10,21 @@ static const Int32 ID_CUSTOMGUI_ROTARYKNOB = 1038994;
 
 // IDs for GUI elements
 static const Int32 IDC_KNOBAREA = 1001;  ///< The ID of the knob user area
-static const Int32 IDC_VALUE    = 1002;  ///< The ID of the value display
 
-static const Int32 MSG_KNOBAREAMESSAGE = 1039007;  ///< Unique ID for messages from the KnobArea to the CustomGUI
+// IDs for GUI messages
+static const Int32 MSG_KNOBAREAMESSAGE = 1039007;      ///< Unique ID for messages from the KnobArea to the CustomGUI
 static const Int32 MSG_KNOBAREAMESSAGE_SHOWPOPUP = 1;  ///< Show value entry popup
 
 /// ID values for Rotary Knob CustomProperties
 enum
 {
-	ROTARY_HIDE_VALUE	= 10000,       ///< Hide the value display
-	ROTARY_VALUE_IN_KNOB = 10001,    ///< Draw the value inside the knob instead of in a separate number field
-	ROTARY_HIDE_NAME = 10002,        ///< Hide the parameter name above the knob
-	ROTARY_CIRCULARMOUSE = 10003     ///< Use circular instead of linear mouse movement
+	ROTARY_HIDE_NAME = 10001,        ///< Hide the parameter name above the knob
+	ROTARY_CIRCULARMOUSE = 10002     ///< Use circular instead of linear mouse movement
 };
 
 /// CustomProperties for Rotary Knob CustomGUI
 CustomProperty g_RotaryKnobProps[] =
 {
-	{ CUSTOMTYPE_FLAG, ROTARY_HIDE_VALUE, "HIDE_VALUE" },
-	{ CUSTOMTYPE_FLAG, ROTARY_VALUE_IN_KNOB, "VALUE_IN_KNOB" },
 	{ CUSTOMTYPE_FLAG, ROTARY_HIDE_NAME, "HIDE_NAME" },
 	{ CUSTOMTYPE_FLAG, ROTARY_CIRCULARMOUSE, "CIRCULAR" },
 	{ CUSTOMTYPE_END, 0, "" }
@@ -52,8 +49,6 @@ static const Float ROTARYKNOBAREA_SCALELIMIT = 135.0;  ///< Where the usable ran
 /// This struct holds some of the DESC_ properties required for the rotary knob user area
 struct DescElementProperties
 {
-	Bool  _hideValue;      ///< Hide value display
-	Bool  _valueInKnob;    ///< Draw the value inside the knob instead of in a separate number field
 	Bool  _hideName;       ///< Don't draw the name on top of the knob
 	Bool  _circularMouse;  ///< Use circular instead of linear mouse movement
 	Float _descMin;        ///< Min value
@@ -62,14 +57,12 @@ struct DescElementProperties
 	String _descName;      ///< Element name
 	
 	/// Default constructor
-	DescElementProperties() : _hideValue(false), _valueInKnob(false), _hideName(false), _circularMouse(false), _descMin(0.0), _descMax(0.0), _descStep(0.0)
+	DescElementProperties() : _hideName(false), _circularMouse(false), _descMin(0.0), _descMax(0.0), _descStep(0.0)
 	{}
 	
 	/// Construct from BaseContainer with DESC_ properties
 	DescElementProperties(const BaseContainer &src)
 	{
-		_hideValue = src.GetBool(ROTARY_HIDE_VALUE);
-		_valueInKnob = src.GetBool(ROTARY_VALUE_IN_KNOB);
 		_circularMouse = src.GetBool(ROTARY_CIRCULARMOUSE);
 		_hideName = src.GetBool(ROTARY_HIDE_NAME);
 		_descMin = src.GetFloat(DESC_MIN, 0.0);
@@ -77,6 +70,46 @@ struct DescElementProperties
 		_descStep = src.GetFloat(DESC_STEP, 0.0);
 		_descName = src.GetString(DESC_NAME);
 	}
+};
+
+
+/// This struct holds some values that will be used throughout the drawing
+/// functions, so those values don't have to be calculated unnecessarily often.
+struct KnobAreaDrawValues
+{
+	Int32 areaWidth;
+	Int32 areaHalfWidth;
+	Float areaRadius;
+	Vector areaColor;
+	
+	Float scaleRadius1;
+	Float scaleRadius2;
+	Vector scaleColor;
+	
+	Int32 knobOuterCorner1;
+	Int32 knobOuterCorner2;
+	Vector knobOuterColor;
+	
+	Int32 knobInnerCorner1;
+	Int32 knobInnerCorner2;
+	Vector knobInnerColor;
+	
+	Int32 knobCenterCorner1;
+	Int32 knobCenterCorner2;
+	Vector knobCenterColor;
+	
+	Float markerRadius;
+	Vector markerColor;
+	
+	Int32 labelPosY;
+	Vector labelColor;
+	BaseContainer labelFontDesc;
+	
+	
+	KnobAreaDrawValues() : areaWidth(0), areaHalfWidth(0), areaRadius(0.0), scaleRadius1(0.0), scaleRadius2(0.0), knobOuterCorner1(0), knobOuterCorner2(0), knobInnerCorner1(0), knobInnerCorner2(0), knobCenterCorner1(0), knobCenterCorner2(0), markerRadius(0.0), labelPosY(0)
+	{}
+	
+	KnobAreaDrawValues(GeClipMap &clipMap);
 };
 
 
@@ -113,31 +146,36 @@ private:
 	/// Converts a color vector (0.0 ... 1.0) to separate RGB values (0 ... 255)
 	void ColorToRGB(const Vector &color, Int32 &r, Int32 &g, Int32 &b) const;
 	
-	/// Sets a standard GUI color as draw color in the GeClipMap
-	/// param[in] cid A color ID from the C4D API's COLOR_ enumeration
-	void SetCanvasColor(Int32 cid);
+	/// Sets a color as draw color in the GeClipMap
+	/// param[in] col The color to set
+	void SetCanvasColor(const Vector &col);
 	
 	/// Draw the knob background
 	/// @note: Must be called between BeginDraw() and EndDraw()
-	void DrawBackground();
+	void DrawBackground(const KnobAreaDrawValues &drawValues);
 	
 	/// Draw the knob
 	/// @note: Must be called between BeginDraw() and EndDraw()
-	void DrawKnob();
+	void DrawKnob(const KnobAreaDrawValues &drawValues);
+	
+	/// Draw the scale
+	/// @note: Must be called between BeginDraw() and EndDraw()
+	void DrawScale(const KnobAreaDrawValues &drawValues);
 	
 	/// Draw the knob's marker
 	/// @note: Must be called between BeginDraw() and EndDraw()
-	void DrawMarker();
+	void DrawMarker(const KnobAreaDrawValues &drawValues);
 	
 	/// Draw the value on the knob
 	/// @note: Must be called between BeginDraw() and EndDraw()
-	void DrawValue();
+	void DrawValue(KnobAreaDrawValues &drawValues);
 	
 private:
 	Bool       _tristate;  ///< True, if the GUI element is in a tristate
 	Float      _value;     ///< The value
 	DescElementProperties  _properties;  ///< Custom properties as specified in the .res file
 	AutoAlloc<GeClipMap>   _canvas;      ///< GeClipMap for drawing the knob
+	KnobAreaDrawValues     _drawValues;  ///< Cache for values used during drawing
 };
 
 

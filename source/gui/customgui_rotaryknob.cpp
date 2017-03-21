@@ -1,6 +1,5 @@
 #include "c4d.h"
 #include "main.h"
-#include "lib_clipmap.h"
 #include "c4d_symbols.h"
 #include "customgui_rotaryknob.h"
 
@@ -39,9 +38,51 @@ static Float RoundGrid(Float value, Float grid)
 }
 
 
+KnobAreaDrawValues::KnobAreaDrawValues(GeClipMap &clipMap)
+{
+	// Area & background
+	areaWidth = ROTARYKNOBAREA_WIDTH * ROTARYKNOBAREA_OVERSAMPLING;
+	areaHalfWidth = areaWidth / 2;
+	areaRadius = areaHalfWidth - ROTARYKNOBAREA_MARGIN;
+	areaColor = GetGuiWorldColor(COLOR_BG);
+	
+	// Scale
+	scaleRadius1 = areaRadius * 1.1;
+	scaleRadius2 = areaRadius * 1.05;
+	scaleColor = GetGuiWorldColor(COLOR_BG_DARK1);
+	
+	// Knob
+	knobOuterCorner1 = ROTARYKNOBAREA_MARGIN;
+	knobOuterCorner2 = areaWidth - ROTARYKNOBAREA_MARGIN;
+	knobOuterColor = GetGuiWorldColor(COLOR_BG_DARK1);
+	
+	knobInnerCorner1 = (Int32)(ROTARYKNOBAREA_MARGIN * 1.15);
+	knobInnerCorner2 = areaWidth - knobInnerCorner1;
+	knobInnerColor = GetGuiWorldColor(COLOR_BG_DARK2);
+	
+	knobCenterCorner1 = (Int32)(-ROTARYKNOBAREA_MARGIN + areaHalfWidth);
+	knobCenterCorner2 = ROTARYKNOBAREA_MARGIN + areaHalfWidth;
+	knobCenterColor = GetGuiWorldColor(COLOR_BG_HIGHLIGHT);
+	
+	// Marker
+	markerRadius = areaRadius * 0.8;
+	markerColor = GetGuiWorldColor(COLOR_BG_HIGHLIGHT);
+	
+	// Value label
+	labelPosY = (Int32)(areaHalfWidth * 1.5) - clipMap.GetTextHeight() / 2;
+	labelColor = GetGuiWorldColor(COLOR_MENU_BG_ICON);
+	clipMap.GetDefaultFont(GE_FONT_DEFAULT_SYSTEM, &labelFontDesc);
+}
+
 
 RotaryKnobArea::RotaryKnobArea() : _tristate(false), _value(0.0)
-{}
+{
+	if (_canvas)
+	{
+		// Prepare cache with values needed for drawing
+		_drawValues = KnobAreaDrawValues(*_canvas);
+	}
+}
 
 RotaryKnobArea::~RotaryKnobArea()
 {}
@@ -65,11 +106,11 @@ Bool RotaryKnobArea::GetMinSize(Int32 &w, Int32 &h)
 
 void RotaryKnobArea::DrawMsg(Int32 x1, Int32 y1, Int32 x2, Int32 y2, const BaseContainer &msg)
 {
-	// Calculate area width
-	Int32 width = ROTARYKNOBAREA_WIDTH * ROTARYKNOBAREA_OVERSAMPLING;
+	if (!_canvas)
+		return;
 	
 	// Cancel if anything goes wrong
-	if (!_canvas || _canvas->Init(width, width, 24) != IMAGERESULT_OK)
+	if (_canvas->Init(_drawValues.areaWidth, _drawValues.areaWidth, 24) != IMAGERESULT_OK)
 		return;
 	
 	// Select whole user area as clipping area
@@ -79,23 +120,25 @@ void RotaryKnobArea::DrawMsg(Int32 x1, Int32 y1, Int32 x2, Int32 y2, const BaseC
 	_canvas->BeginDraw();
 	{
 		// Fill the background
-		DrawBackground();
+		DrawBackground(_drawValues);
+		
+		// Draw the scale
+		DrawScale(_drawValues);
 		
 		// Draw the knob
-		DrawKnob();
+		DrawKnob(_drawValues);
 		
 		// Draw the marker
-		DrawMarker();
+		DrawMarker(_drawValues);
 		
-		// Draw the value, if desired
-		if (_properties._valueInKnob)
-			DrawValue();
+		// Draw the value
+		DrawValue(_drawValues);
 	}
 	// End drawing in the ClipMap
 	_canvas->EndDraw();
 	
 	// Draw ClipMap to user area
-	this->DrawBitmap(_canvas->GetBitmap(), 0, 0, ROTARYKNOBAREA_WIDTH, ROTARYKNOBAREA_WIDTH, 0, 0, width, width, _tristate ? BMP_EMBOSSED : BMP_NORMAL);
+	this->DrawBitmap(_canvas->GetBitmap(), 0, 0, ROTARYKNOBAREA_WIDTH, ROTARYKNOBAREA_WIDTH, 0, 0, _drawValues.areaWidth, _drawValues.areaWidth, _tristate ? BMP_EMBOSSED : BMP_NORMAL);
 }
 
 Bool RotaryKnobArea::InputEvent(const BaseContainer &msg)
@@ -268,42 +311,67 @@ void RotaryKnobArea::ColorToRGB(const Vector &color, Int32 &r, Int32 &g, Int32 &
 	b = (Int32)(color.z * 255.0);
 }
 
-void RotaryKnobArea::SetCanvasColor(Int32 cid)
+void RotaryKnobArea::SetCanvasColor(const Vector &col)
 {
 	Int32 r = 0, g = 0, b = 0;
 	
 	// Get standard GUI color, convert to RGB
-	ColorToRGB(GetGuiWorldColor(cid), r, g, b);
+	ColorToRGB(col, r, g, b);
 	
 	// Set color
 	_canvas->SetColor(r, g, b);
 }
 
-void RotaryKnobArea::DrawBackground()
+void RotaryKnobArea::DrawBackground(const KnobAreaDrawValues &drawValues)
 {
-	SetCanvasColor(COLOR_BG);
+	SetCanvasColor(drawValues.areaColor);
 	_canvas->FillRect(0, 0, _canvas->GetBw(), _canvas->GetBw());
 }
 
-void RotaryKnobArea::DrawKnob()
+void RotaryKnobArea::DrawKnob(const KnobAreaDrawValues &drawValues)
 {
-	Int32 width = ROTARYKNOBAREA_WIDTH * ROTARYKNOBAREA_OVERSAMPLING;
-	Int32 halfWidth = width / 2;
-	
 	// Draw outer circle (acts as a bold dark outline)
-	SetCanvasColor(COLOR_BG_DARK1);
-	_canvas->FillEllipse(ROTARYKNOBAREA_MARGIN, ROTARYKNOBAREA_MARGIN, width - ROTARYKNOBAREA_MARGIN, width - ROTARYKNOBAREA_MARGIN);
+	SetCanvasColor(drawValues.knobOuterColor);
+	_canvas->FillEllipse(drawValues.knobOuterCorner1, drawValues.knobOuterCorner1, drawValues.knobOuterCorner2, drawValues.knobOuterCorner2);
 	
 	// Draw inner circle
-	SetCanvasColor(COLOR_BG_DARK2);
-	_canvas->FillEllipse((Int32)(ROTARYKNOBAREA_MARGIN * 1.2), (Int32)(ROTARYKNOBAREA_MARGIN * 1.2), (Int32)(width - ROTARYKNOBAREA_MARGIN * 1.2), (Int32)(width - ROTARYKNOBAREA_MARGIN * 1.2));
+	SetCanvasColor(drawValues.knobInnerColor);
+	_canvas->FillEllipse(drawValues.knobInnerCorner1, drawValues.knobInnerCorner1, drawValues.knobInnerCorner2, drawValues.knobInnerCorner2);
 	
 	// Draw center
-	SetCanvasColor(COLOR_BG_HIGHLIGHT);
-	_canvas->FillEllipse(-ROTARYKNOBAREA_MARGIN + halfWidth, -ROTARYKNOBAREA_MARGIN + halfWidth, ROTARYKNOBAREA_MARGIN + halfWidth, ROTARYKNOBAREA_MARGIN + halfWidth);
+	SetCanvasColor(drawValues.knobCenterColor);
+	_canvas->FillEllipse(drawValues.knobCenterCorner1, drawValues.knobCenterCorner1, drawValues.knobCenterCorner2, drawValues.knobCenterCorner2);
 }
 
-void RotaryKnobArea::DrawMarker()
+//TO DO: Still buggy
+void RotaryKnobArea::DrawScale(const KnobAreaDrawValues &drawValues)
+{
+	// Draw n lines
+	for (Int32 i = 0; i <= 10; ++i)
+	{
+		// Map value to scale
+		Float value = (Float)i * 0.1;
+		//value = Blend(_properties._descMin, _properties._descMax, mul);
+		value = MapRange(value, 0.0, 1.0, Rad(-ROTARYKNOBAREA_SCALELIMIT), Rad(ROTARYKNOBAREA_SCALELIMIT));
+		
+		// Map value to circle
+		Float x = Sin(value);
+		Float y = Cos(value);
+		
+		// Select radius (every 2nd scale line is shorter)
+		Float radius = (i % 2 == 1) ? drawValues.scaleRadius2 : drawValues.scaleRadius1;
+
+		// Calculate draw coordinates
+		Int32 ox = (Int32)(x * radius);
+		Int32 oy = (Int32)(y * -radius);
+
+		SetCanvasColor(drawValues.scaleColor);
+		
+		_canvas->Line(drawValues.areaHalfWidth, drawValues.areaHalfWidth, ox + drawValues.areaHalfWidth, oy + drawValues.areaHalfWidth);
+	}
+}
+
+void RotaryKnobArea::DrawMarker(const KnobAreaDrawValues &drawValues)
 {
 	// Map value to scale
 	Float value = MapRange(_value, _properties._descMin, _properties._descMax, Rad(-ROTARYKNOBAREA_SCALELIMIT), Rad(ROTARYKNOBAREA_SCALELIMIT));
@@ -312,43 +380,30 @@ void RotaryKnobArea::DrawMarker()
 	Float x = Sin(value);
 	Float y = Cos(value);
 	
-	// Calculate draw parameters
-	Float width = ROTARYKNOBAREA_WIDTH * ROTARYKNOBAREA_OVERSAMPLING;
-	Float halfWidth = width / 2;
-	Float radius = halfWidth - ROTARYKNOBAREA_MARGIN;
-	Float radius08 = radius * 0.8;
-	
 	// Calculate draw coordinates
-	Float ox = x * radius08;
-	Float oy = y * -radius08;
+	Int32 ox = (Int32)(x * drawValues.markerRadius);
+	Int32 oy = (Int32)(y * -drawValues.markerRadius);
 	
 	// Set color
-	SetCanvasColor(COLOR_BG_HIGHLIGHT);
+	SetCanvasColor(drawValues.markerColor);
 	
 	// Draw
-	_canvas->Line((Int32)halfWidth, (Int32)halfWidth, (Int32)(ox + halfWidth), (Int32)(oy + halfWidth));
+	_canvas->Line(drawValues.areaHalfWidth, drawValues.areaHalfWidth, ox + drawValues.areaHalfWidth, oy + drawValues.areaHalfWidth);
 }
 
 // Draw value text
-void RotaryKnobArea::DrawValue()
+void RotaryKnobArea::DrawValue(KnobAreaDrawValues &drawValues)
 {
-	// Calculate draw parameters
-	Int32 width = ROTARYKNOBAREA_WIDTH * ROTARYKNOBAREA_OVERSAMPLING;
-	Int32 halfWidth = width / 2;
-	
 	// Get value string
 	String label = String::FloatToString(_value);
 	
 	// Set font size
-	BaseContainer fontDesc;
-	if (!_canvas->GetDefaultFont(GE_FONT_DEFAULT_SYSTEM, &fontDesc))
-		return;
-	_canvas->SetFontSize(&fontDesc, GE_FONT_SIZE_INTERNAL, ROTARYKNOBAREA_FONTSIZE);
-	_canvas->SetFont(&fontDesc);
+	_canvas->SetFontSize(&drawValues.labelFontDesc, GE_FONT_SIZE_INTERNAL, ROTARYKNOBAREA_FONTSIZE);
+	_canvas->SetFont(&drawValues.labelFontDesc);
 
 	// Draw value string
-	SetCanvasColor(COLOR_MENU_BG_ICON);
-	_canvas->TextAt(halfWidth - _canvas->GetTextWidth(label) / 2, (Int32)(halfWidth * 1.5) - _canvas->GetTextHeight() / 2, label);
+	SetCanvasColor(drawValues.labelColor);
+	_canvas->TextAt(drawValues.areaHalfWidth - _canvas->GetTextWidth(label) / 2, drawValues.labelPosY, label);
 }
 
 
@@ -377,10 +432,6 @@ Bool RotaryKnobCustomGui::CreateLayout()
 		// Set data in user area
 		_knob.SetProperties(_descProperties);
 		_knob.SetValue(_value, _tristate);
-
-		// Add number field for value display
-		if (!_descProperties._hideValue && !_descProperties._valueInKnob)
-			AddEditNumber(IDC_VALUE, BFH_CENTER, ROTARYKNOBAREA_WIDTH, 10);
 	}
 	GroupEnd();
 
@@ -399,7 +450,6 @@ Bool RotaryKnobCustomGui::InitValues()
 		triState.Add(123.456);
 	
 	// Set tristate to number field and knob area
-	this->SetFloat(IDC_VALUE, triState, _descProperties._descMin, _descProperties._descMax, _descProperties._descStep);
 	_knob.SetValue(_value, _tristate);
 
 	return SUPER::InitValues();
@@ -421,20 +471,6 @@ Bool RotaryKnobCustomGui::Command(Int32 id, const BaseContainer &msg)
 			
 			// Get new value from knob user area
 			_value = _knob.GetValue();
-			
-			// Update GUI
-			this->InitValues();
-			
-			// Send message to parent object to update the parameter value
-			SendParentGuiMessage();
-			
-			return true;
-		}
-
-		case IDC_VALUE:
-		{
-			// Get new value from number field
-			_value = msg.GetFloat(BFM_ACTION_VALUE);
 			
 			// Update GUI
 			this->InitValues();
