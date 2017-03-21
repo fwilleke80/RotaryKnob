@@ -1,3 +1,9 @@
+0.3
+- Added drawing a scale around the knob
+- Added caching drawing values
+- Added circular mouse interaction mode
+- Cleaned up custom properties
+
 0.2
 - Better knob drawing
 - KnobArea mouse interaction
