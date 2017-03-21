@@ -29,7 +29,6 @@ Bool TestObjectData::Init(GeListNode* node)
 
 	data->SetFloat(TEST_PARAM_1, 0.50);
 	data->SetFloat(TEST_PARAM_2, 2.25);
-	data->SetFloat(TEST_PARAM_3, 3.75);
 
 	return true;
 }

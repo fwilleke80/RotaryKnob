@@ -4,8 +4,7 @@
 enum
 {
 	TEST_PARAM_1   = 10000,
-	TEST_PARAM_2   = 10001,
-	TEST_PARAM_3   = 10002
+	TEST_PARAM_2   = 10001
 };
 
 #endif // OTEST_H__
