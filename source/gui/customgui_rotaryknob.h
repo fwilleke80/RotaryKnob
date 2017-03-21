@@ -84,6 +84,8 @@ struct KnobAreaDrawValues
 	
 	Float scaleRadius1;
 	Float scaleRadius2;
+	Float scaleLimitRadians;
+	Float scaleLimitRadiansNeg;
 	Vector scaleColor;
 	
 	Int32 knobOuterCorner1;
@@ -98,7 +100,8 @@ struct KnobAreaDrawValues
 	Int32 knobCenterCorner2;
 	Vector knobCenterColor;
 	
-	Float markerRadius;
+	Float markerLength;
+	Float markerThickness;
 	Vector markerColor;
 	
 	Int32 labelPosY;
@@ -106,7 +109,7 @@ struct KnobAreaDrawValues
 	BaseContainer labelFontDesc;
 	
 	
-	KnobAreaDrawValues() : areaWidth(0), areaHalfWidth(0), areaRadius(0.0), scaleRadius1(0.0), scaleRadius2(0.0), knobOuterCorner1(0), knobOuterCorner2(0), knobInnerCorner1(0), knobInnerCorner2(0), knobCenterCorner1(0), knobCenterCorner2(0), markerRadius(0.0), labelPosY(0)
+	KnobAreaDrawValues() : areaWidth(0), areaHalfWidth(0), areaRadius(0.0), scaleRadius1(0.0), scaleRadius2(0.0), scaleLimitRadians(0.0), scaleLimitRadiansNeg(0.0), knobOuterCorner1(0), knobOuterCorner2(0), knobInnerCorner1(0), knobInnerCorner2(0), knobCenterCorner1(0), knobCenterCorner2(0), markerLength(0.0), markerThickness(0.0), labelPosY(0)
 	{}
 	
 	KnobAreaDrawValues(GeClipMap &clipMap);

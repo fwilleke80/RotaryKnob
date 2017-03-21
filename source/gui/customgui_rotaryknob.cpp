@@ -49,6 +49,8 @@ KnobAreaDrawValues::KnobAreaDrawValues(GeClipMap &clipMap)
 	// Scale
 	scaleRadius1 = areaRadius * 1.1;
 	scaleRadius2 = areaRadius * 1.05;
+	scaleLimitRadians = Rad(ROTARYKNOBAREA_SCALELIMIT);
+	scaleLimitRadiansNeg = Rad(-ROTARYKNOBAREA_SCALELIMIT);
 	scaleColor = GetGuiWorldColor(COLOR_BG_DARK1);
 	
 	// Knob
@@ -65,7 +67,8 @@ KnobAreaDrawValues::KnobAreaDrawValues(GeClipMap &clipMap)
 	knobCenterColor = GetGuiWorldColor(COLOR_BG_HIGHLIGHT);
 	
 	// Marker
-	markerRadius = areaRadius * 0.8;
+	markerLength = areaRadius * 0.8;
+	markerThickness = ROTARYKNOBAREA_MARGIN * 0.6;
 	markerColor = GetGuiWorldColor(COLOR_BG_HIGHLIGHT);
 	
 	// Value label
@@ -350,9 +353,7 @@ void RotaryKnobArea::DrawScale(const KnobAreaDrawValues &drawValues)
 	for (Int32 i = 0; i <= 10; ++i)
 	{
 		// Map value to scale
-		Float value = (Float)i * 0.1;
-		//value = Blend(_properties._descMin, _properties._descMax, mul);
-		value = MapRange(value, 0.0, 1.0, Rad(-ROTARYKNOBAREA_SCALELIMIT), Rad(ROTARYKNOBAREA_SCALELIMIT));
+		Float value = MapRange((Float)i * 0.1, 0.0, 1.0, drawValues.scaleLimitRadiansNeg, drawValues.scaleLimitRadians);
 		
 		// Map value to circle
 		Float x = Sin(value);
@@ -374,21 +375,26 @@ void RotaryKnobArea::DrawScale(const KnobAreaDrawValues &drawValues)
 void RotaryKnobArea::DrawMarker(const KnobAreaDrawValues &drawValues)
 {
 	// Map value to scale
-	Float value = MapRange(_value, _properties._descMin, _properties._descMax, Rad(-ROTARYKNOBAREA_SCALELIMIT), Rad(ROTARYKNOBAREA_SCALELIMIT));
+	Float value = MapRange(_value, _properties._descMin, _properties._descMax, drawValues.scaleLimitRadiansNeg, drawValues.scaleLimitRadians);
 	
 	// Map value to circle
 	Float x = Sin(value);
 	Float y = Cos(value);
-	
-	// Calculate draw coordinates
-	Int32 ox = (Int32)(x * drawValues.markerRadius);
-	Int32 oy = (Int32)(y * -drawValues.markerRadius);
-	
+
 	// Set color
 	SetCanvasColor(drawValues.markerColor);
 	
+	// Set up point array
+	GE_POINT2D points[3];
+	points[0].x = (Int32)(y * drawValues.markerThickness + drawValues.areaHalfWidth);
+	points[0].y = (Int32)(x * drawValues.markerThickness + drawValues.areaHalfWidth);
+	points[1].x = (Int32)(-y * drawValues.markerThickness + drawValues.areaHalfWidth);
+	points[1].y = (Int32)(-x * drawValues.markerThickness + drawValues.areaHalfWidth);
+	points[2].x = (Int32)(x * drawValues.markerLength + drawValues.areaHalfWidth);
+	points[2].y = (Int32)(y * -drawValues.markerLength + drawValues.areaHalfWidth);
+	
 	// Draw
-	_canvas->Line(drawValues.areaHalfWidth, drawValues.areaHalfWidth, ox + drawValues.areaHalfWidth, oy + drawValues.areaHalfWidth);
+	_canvas->FillPolygon(3, points);
 }
 
 // Draw value text
