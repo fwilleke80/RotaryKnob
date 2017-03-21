@@ -2,7 +2,7 @@
 #include "main.h"
 
 
-#define PLUGIN_VERSION String("RotaryKnob 0.3")
+#define PLUGIN_VERSION String("RotaryKnob 0.4")
 
 
 Bool PluginStart()
