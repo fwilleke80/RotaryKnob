@@ -1,3 +1,6 @@
+0.4
+- Much nicer marker drawing
+
 0.3
 - Added drawing a scale around the knob
 - Added caching drawing values
